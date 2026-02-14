@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+/* --- 1. ПЕРЕМЕННЫЕ (НАСТРОЙКИ) --- */
+:root {
+  /* Твои старые переменные (дефолт - светлый, но мы переопределим ниже для темного Nexus) */
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  /* --- NEXUS PALETTE (Живые цвета) --- */
+  /* Основной цвет (Indigo-500 default: 99 102 241) */
+  --primary: 99 102 241; 
+  
+  /* Фон приложения (Neutral-950) */
+  --bg-main: 10 10 10;
+  
+  /* Карточки/Плашки (Neutral-900) */
+  --bg-card: 23 23 23;
+
+  /* Текст */
+  --text-main: 229 229 229;
+  --text-muted: 115 115 115;
+
+  --app-text-scale: 1;
+}
+
+/* --- 2. СВЕТЛАЯ ТЕМА (Переопределение) --- */
+[data-theme='light'] {
+  --background: #ffffff;
+  --foreground: #171717;
+  
+  --bg-main: 245 245 245; /* Светло-серый фон */
+  --bg-card: 255 255 255; /* Белые карточки */
+  --text-main: 23 23 23; 
+  --text-muted: 82 82 82; 
+}
+
+/* --- 3. ТВОЯ ТЕМА TAILWIND --- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Поддержка системной темной темы (оставляем как у тебя было) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* --- 4. УТИЛИТЫ NEXUS --- */
+/* Создаем классы, которые используют наши переменные */
+@layer utilities {
+  .bg-primary { background-color: rgb(var(--primary)); }
+  .bg-primary-20 { background-color: rgba(var(--primary), 0.2); }
+  .text-primary { color: rgb(var(--primary)); }
+  .border-primary { border-color: rgb(var(--primary)); }
+  
+  .bg-main { background-color: rgb(var(--bg-main)); }
+  .bg-card { background-color: rgb(var(--bg-card)); }
+}
+
+/* --- 5. СКРОЛЛБАР (ТОНКИЙ) --- */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* --- 6. ОСНОВНЫЕ СТИЛИ --- */
+html {
+  font-size: calc(16px * var(--app-text-scale));
+}
+
+body {
+  background: rgb(var(--bg-main)); /* Теперь фон зависит от темы */
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  
+  /* Безопасные зоны для iPhone/Android */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  
+  /* Фикс для предотвращения "резинового" скролла всей страницы */
+  overscroll-behavior: none;
+  background-color: rgb(var(--bg-main));
+}
+
+/* --- 7. ДОСТУПНОСТЬ (FOCUS RING) --- */
+/* Рамка появляется ТОЛЬКО при навигации с клавиатуры */
+:focus-visible {
+  outline: 2px solid rgb(var(--primary));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Убираем стандартную рамку при клике мышью (она многих бесит) */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* === БЛОКИРОВКА ГОРИЗОНТАЛЬНОГО РЕЖИМА (LANDSCAPE) === */
+@media screen and (orientation: landscape) and (max-height: 500px) and (hover: none) {
+  body::after {
+    content: "Пожалуйста, поверните устройство вертикально ↻";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #000;
+    color: #fff;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+  }
+  
+  /* Скрываем весь контент приложения под заглушкой */
+  main, aside, nav {
+    display: none !important;
+  }
+}
