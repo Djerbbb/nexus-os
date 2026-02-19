@@ -627,7 +627,6 @@ export default function BrainWidget() {
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id;
     
-    // 1. Временный ID и Объект
     const tempId = LocalDB.generateLocalId();
     const newNoteLocal = {
       id: tempId,
@@ -637,17 +636,14 @@ export default function BrainWidget() {
       folder_id: finalFolderId,
       updated_at: new Date().toISOString(),
       is_favorite: false,
-      isUnsaved: true
+      isUnsaved: false
     };
     
-    // 2. Мгновенно показываем временную заметку
-    // @ts-ignore
     setNotes(prev => [newNoteLocal, ...prev]);
     setSelectedNoteId(tempId);
     setViewMode('edit');
     setShowTemplates(false);
 
-    // 3. Сохраняем в фоне
     try {
       await LocalDB.put('notes', newNoteLocal);
       
@@ -656,25 +652,28 @@ export default function BrainWidget() {
       }]).select().single();
 
       if (data && !error) {
-        // ОНЛАЙН: Пришел настоящий ID
-        const realNote = { ...newNoteLocal, ...data, isUnsaved: false };
-        
-        // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ---
-        
-        // 1. Обновляем список (меняем временный объект на настоящий)
-        setNotes(prev => prev.map(n => n.id === tempId ? realNote : n));
+        // --- ВСТАВИТЬ СЮДА ---
+        setNotes(prev => {
+          const exists = prev.find(n => n.id === tempId);
+          if (!exists) return prev;
+          
+          // Мягко меняем ID, сохраняя контент, который ты мог успеть ввести
+          const realNote = { 
+            ...exists, 
+            id: data.id, 
+            updated_at: data.updated_at, 
+            isUnsaved: exists.content !== templateContent || exists.title !== title 
+          };
+          
+          // Выполняем операции с БД в фоне
+          LocalDB.delete('notes', tempId).then(() => LocalDB.put('notes', realNote));
+          
+          return prev.map(n => n.id === tempId ? realNote : n);
+        });
 
-        // 2. Обновляем выбор (используем функцию `current =>`, чтобы прочитать АКТУАЛЬНЫЙ ID)
-        // Если мы всё еще смотрим на временную заметку — переключаемся на настоящую
-        setSelectedNoteId(current => (current === tempId ? realNote.id : current));
-        
-        // 3. Чистим базу данных
-        await LocalDB.delete('notes', tempId);
-        await LocalDB.put('notes', realNote);
-        
-        logEvent('brain', 'create', `Новая мысль: ${title}`, { id: realNote.id });
+        setSelectedNoteId(current => (current === tempId ? data.id : current));
+        logEvent('brain', 'create', `Новая мысль: ${title}`, { id: data.id });
       } else {
-        // Оффлайн: просто добавляем в очередь синхронизации
         await LocalDB.addToSyncQueue({ table: 'notes', type: 'INSERT', payload: newNoteLocal, tempId });
       }
     } catch (e) {
@@ -728,18 +727,18 @@ export default function BrainWidget() {
   };
 
   const handleSaveNote = async () => {
-    if (!activeNote) return;
+    // Защита от сохранения временных заметок (призраков)
+    if (!activeNote || activeNote.id < 0) return; 
     setIsSaving(true);
 
     const updated = { ...activeNote, updated_at: new Date().toISOString(), isUnsaved: false };
     
-    // 1. Optimistic Update (UI + LocalDB)
-    setNotes(notes.map(n => n.id === activeNote.id ? updated : n));
+    // ИСПОЛЬЗУЕМ prev, чтобы не перезаписать стейт старыми данными
+    setNotes(prev => prev.map(n => n.id === activeNote.id ? updated : n));
     await LocalDB.put('notes', updated);
 
-    // 2. Remote Update
     await supabase.from('notes').update({ 
-      title: activeNote.title, content: activeNote.content, updated_at: new Date().toISOString()
+      title: activeNote.title, content: activeNote.content, updated_at: updated.updated_at
     }).eq('id', activeNote.id);
     
     await processLinks(activeNote.id, activeNote.content);
@@ -1069,22 +1068,19 @@ blockquote: ({ children }: any) => {
 
 // --- AUTOSAVE LOGIC ---
   useEffect(() => {
-    // Если автосохранение выключено или заметка не выбрана — выходим
     if (!autosaveEnabled || !activeNote || !activeNote.isUnsaved) return;
 
-    // Сбрасываем предыдущий таймер
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
 
-    // Ставим новый таймер на 2 секунды бездействия
     autosaveTimerRef.current = setTimeout(() => {
-       console.log('Autosaving...', activeNote.title);
        handleSaveNote();
     }, 2000);
 
     return () => {
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     };
-  }, [activeNote?.content, activeNote?.title, autosaveEnabled]); // Следим за контентом
+  // ДОБАВЛЕНЫ activeNote?.id и activeNote?.isUnsaved
+  }, [activeNote?.content, activeNote?.title, activeNote?.id, activeNote?.isUnsaved, autosaveEnabled]);
 
   return (
     <div className="flex h-full w-full md:gap-6 relative">
@@ -1438,7 +1434,7 @@ blockquote: ({ children }: any) => {
 
               <input 
                 value={activeNote.title} 
-                onChange={e => setNotes(notes.map(n => n.id === activeNote.id ? { ...n, title: e.target.value, isUnsaved: true } : n))} 
+                onChange={e => setNotes(prev => prev.map(n => n.id === activeNote.id ? { ...n, title: e.target.value, isUnsaved: true } : n))}
                 className="bg-transparent text-lg font-medium text-white focus:outline-none w-full min-w-0 truncate" 
                 placeholder="Название заметки"
               />
@@ -1584,7 +1580,7 @@ blockquote: ({ children }: any) => {
               <textarea 
                 ref={textareaRef}
                 value={activeNote.content} 
-                onChange={e => setNotes(notes.map(n => n.id === activeNote.id ? { ...n, content: e.target.value, isUnsaved: true } : n))} 
+                onChange={e => setNotes(prev => prev.map(n => n.id === activeNote.id ? { ...n, content: e.target.value, isUnsaved: true } : n))}
                 placeholder="Пишите здесь... Используйте #теги и [[ссылки]]." 
                 style={{ fontSize: 'var(--note-font-size)' }}
                 className="flex-1 bg-transparent p-4 md:p-8 text-neutral-300 resize-none focus:outline-none font-mono leading-relaxed custom-scrollbar" 

@@ -7,7 +7,7 @@ import {
   CheckSquare, Wallet, ArrowRight, Zap, 
   TrendingUp, TrendingDown, Activity, Brain, 
   Plus, AlertTriangle, Search, FileText, Loader2,
-  Settings
+  Settings, X
 } from 'lucide-react';
 import { LocalDB } from '@/lib/db'; 
 import { App as CapApp } from '@capacitor/app'; 
@@ -36,10 +36,13 @@ export default function Dashboard() {
     userName: 'Commander'
   });
 
+
+  
   // --- SEARCH STATE ---
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [announcement, setAnnouncement] = useState<string | null>(null);
 
   // --- SYNC ENGINE (НОВАЯ ЧАСТЬ) ---
   // Добавляем этот useEffect, чтобы запускать синхронизацию при входе и появлении сети
@@ -65,6 +68,11 @@ export default function Dashboard() {
     SettingsManager.applyTheme(settings); // Применяем тему
     setHideBalances(settings.hideBalances);
     fetchStats();
+    const fetchAnnouncement = async () => {
+    const { data } = await supabase.from('system_announcements').select('message').eq('is_active', true).limit(1).maybeSingle();
+    if (data) setAnnouncement(data.message);
+    };
+    fetchAnnouncement();
     SettingsManager.applyTheme(SettingsManager.get());
   }, []);
 
@@ -359,6 +367,19 @@ export default function Dashboard() {
            </div>
          )}
       </div>
+
+      {/* SYSTEM ANNOUNCEMENT */}
+      {announcement && (
+         <div className="mb-6 px-4 py-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-center justify-between text-indigo-400 animate-in slide-in-from-top-4 shadow-lg shadow-indigo-500/5">
+           <div className="flex items-center gap-3">
+             <AlertTriangle size={18} className="shrink-0" />
+             <span className="text-sm font-medium leading-snug">{announcement}</span>
+           </div>
+           <button onClick={() => setAnnouncement(null)} className="p-1 hover:bg-indigo-500/20 rounded-lg transition ml-4 shrink-0">
+             <X size={16} />
+           </button>
+         </div>
+      )}
 
       {/* HEADER */}
       <div className="mb-8 animate-in slide-in-from-top-4 duration-500 flex justify-between items-start">

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {  
+  output: 'export',
   images: { 
     unoptimized: true 
   },
@@ -12,11 +13,6 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
 
-  // Новая секция для решения проблемы зависания
-  experimental: {
-    // Отключаем файловый кеш Turbopack, который часто вызывает циклы компиляции
-    turbopackFileSystemCacheForDev: false,
-  },
 };
 
 export default nextConfig;

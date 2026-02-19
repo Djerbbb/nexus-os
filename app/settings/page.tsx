@@ -4,16 +4,86 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, Fingerprint, Eye, EyeOff, 
-  Bell, Shield, CheckSquare, Brain
+  Bell, Shield, CheckSquare, Brain,
+  Camera, User as UserIcon, Loader2,
+  LifeBuoy, Send, MessageSquare
 } from 'lucide-react';
 import { SettingsManager, AppSettings } from '../../lib/settings';
 import { NativeBiometric } from 'capacitor-native-biometric';
 import { Capacitor } from '@capacitor/core';
+import { supabase } from '@/lib/supabase';
+import { User } from '@supabase/supabase-js';
 
 export default function SettingsPage() {
   const router = useRouter();
   const [settings, setSettings] = useState<AppSettings>(SettingsManager.get());
   const [biometryAvailable, setBiometryAvailable] = useState(false);
+
+  // --- СОСТОЯНИЯ ТИКЕТА ---
+  const [ticketCategory, setTicketCategory] = useState('bug');
+  const [ticketMessage, setTicketMessage] = useState('');
+  const [ticketLoading, setTicketLoading] = useState(false);
+  const [requiresFeedback, setRequiresFeedback] = useState(false);
+
+  // --- ИСТОРИЯ ТИКЕТОВ ПОЛЬЗОВАТЕЛЯ ---
+  const [userTickets, setUserTickets] = useState<any[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+
+  // --- Состояние для профиля ---
+  const [user, setUser] = useState<User | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    // Загружаем данные пользователя при открытии настроек
+    const getUserProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser(user);
+        // Если есть аватарка — ставим её
+        if (user.user_metadata?.avatar_url) {
+          setAvatarUrl(user.user_metadata.avatar_url);
+        }
+      }
+    };
+    getUserProfile();
+  }, []);
+
+  // --- НОВОЕ: Функция загрузки фото ---
+  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      if (!event.target.files || event.target.files.length === 0) return;
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}.${fileExt}`; // Имя файла = ID юзера
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      const publicUrl = `${data.publicUrl}?t=${new Date().getTime()}`;
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl },
+      });
+
+      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user?.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl);
+    } catch (error) {
+      console.error('Ошибка:', error);
+      alert('Ошибка загрузки фото');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     const checkBiometry = async () => {
@@ -31,6 +101,48 @@ export default function SettingsPage() {
     setSettings(updated);
   };
 
+  useEffect(() => {
+    const fetchMyTickets = async () => {
+      setLoadingTickets(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        const { data, error } = await supabase
+          .from('support_tickets')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false });
+          
+        if (data && !error) {
+          setUserTickets(data);
+        }
+      }
+      setLoadingTickets(false);
+    };
+    
+    fetchMyTickets();
+  }, []);
+
+  const handleSendTicket = async () => {
+    if (!ticketMessage.trim()) return alert('Введите сообщение');
+    setTicketLoading(true);
+    try {
+      const { error } = await supabase.rpc('create_support_ticket', {
+        p_category: ticketCategory,
+        p_message: ticketMessage,
+        p_requires_feedback: requiresFeedback
+      });
+      if (error) throw error;
+      alert('Ваше сообщение отправлено в поддержку!');
+      setTicketMessage(''); 
+      setRequiresFeedback(false);
+    } catch (err: any) {
+      alert('Ошибка: ' + err.message);
+    } finally {
+      setTicketLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-main text-main animate-in fade-in duration-300">
       
@@ -42,7 +154,47 @@ export default function SettingsPage() {
         <h1 className="text-xl font-light">Настройки</h1>
       </div>
 
+
+
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
+
+        {/* === КАРТОЧКА ПРОФИЛЯ === */}
+        <div className="bg-card rounded-3xl border border-neutral-500/10 p-6 mb-8 flex flex-col items-center relative overflow-hidden">
+           {/* Фон-градиент */}
+           <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-indigo-500/20 to-transparent pointer-events-none"/>
+           
+           <div className="relative group mb-4">
+              {/* Круг с фото */}
+              <div className="w-28 h-28 rounded-full border-4 border-card bg-neutral-800 shadow-2xl overflow-hidden relative">
+                 {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                 ) : (
+                    <div className="w-full h-full flex items-center justify-center text-neutral-600">
+                      <UserIcon size={48} />
+                    </div>
+                 )}
+                 {/* Лоадер */}
+                 {uploading && (
+                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
+                     <Loader2 size={32} className="animate-spin text-white" />
+                   </div>
+                 )}
+              </div>
+
+              {/* Кнопка-камера (скрытый input) */}
+              <label className={`absolute bottom-1 right-1 p-3 bg-indigo-500 hover:bg-indigo-400 text-white rounded-full shadow-lg cursor-pointer transition transform hover:scale-110 active:scale-95 z-10 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <Camera size={18} />
+                <input type="file" accept="image/*" onChange={uploadAvatar} disabled={uploading} className="hidden" />
+              </label>
+           </div>
+
+           <h2 className="text-xl font-bold text-main">
+             {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Commander'}
+           </h2>
+           <p className="text-sm text-muted font-mono bg-white/5 px-3 py-1 rounded-full mt-2">
+             {user?.email}
+           </p>
+        </div>
 
         {/* === ИНТЕРФЕЙС (НОВОЕ) === */}
         <section>
@@ -316,6 +468,93 @@ export default function SettingsPage() {
               </div>
             </div>
 
+          </div>
+        </section>
+
+        {/* === ИСТОРИЯ ОБРАЩЕНИЙ === */}
+        {userTickets.length > 0 && (
+          <section>
+            <h2 className="text-xs font-bold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+              <MessageSquare size={14} className="text-indigo-400"/> Мои обращения
+            </h2>
+            <div className="space-y-3 mb-8">
+              {userTickets.map((t) => (
+                <div key={t.id} className="bg-card rounded-2xl border border-neutral-500/10 p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                      t.status === 'open' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'
+                    }`}>
+                      {t.status === 'open' ? 'В обработке' : 'Решено'}
+                    </span>
+                    <span className="text-[10px] text-neutral-600">
+                      {new Date(t.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  
+                  <p className="text-sm text-main mb-3 whitespace-pre-wrap">{t.message}</p>
+
+                  {/* ОТВЕТ АДМИНА */}
+                  {t.admin_reply && (
+                    <div className="bg-indigo-500/5 border-l-2 border-indigo-500 p-3 rounded-r-xl mt-2">
+                      <span className="text-[10px] font-bold text-indigo-400 block mb-1 uppercase tracking-tight">Ответ администратора:</span>
+                      <p className="text-sm text-indigo-200/90 whitespace-pre-wrap">{t.admin_reply}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* === ОБРАТНАЯ СВЯЗЬ (ТИКЕТЫ) === */}
+        <section>
+          <h2 className="text-xs font-bold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+            <LifeBuoy size={14} className="text-indigo-400"/> Поддержка и отзывы
+          </h2>
+          <div className="bg-card rounded-2xl border border-neutral-500/10 p-6 flex flex-col gap-4">
+            
+            <div className="flex flex-col gap-2">
+               <label className="text-xs font-medium text-muted">Категория обращения</label>
+               <select 
+                 value={ticketCategory} 
+                 onChange={e => setTicketCategory(e.target.value)}
+                 className="bg-main border border-neutral-500/10 rounded-xl px-3 py-2 text-sm text-main focus:outline-none focus:border-indigo-500 transition"
+               >
+                 <option value="bug">Техническая ошибка (Баг)</option>
+                 <option value="feature">Предложение по улучшению</option>
+                 <option value="question">Вопрос по функционалу</option>
+                 <option value="other">Другое</option>
+               </select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+               <label className="text-xs font-medium text-muted">Сообщение</label>
+               <textarea 
+                 value={ticketMessage} 
+                 onChange={e => setTicketMessage(e.target.value)}
+                 placeholder="Опишите проблему или вашу идею..."
+                 className="w-full bg-main border border-neutral-500/10 rounded-xl px-3 py-2 text-sm text-main focus:outline-none focus:border-indigo-500 transition min-h-[100px] custom-scrollbar"
+               />
+            </div>
+
+            <label className="flex items-center gap-2 mt-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={requiresFeedback}
+                onChange={(e) => setRequiresFeedback(e.target.checked)}
+                className="w-4 h-4 rounded border-neutral-500/20 text-indigo-500 focus:ring-indigo-500 bg-neutral-900"
+              />
+              <span className="text-xs text-muted">Хочу получить ответ от Администрации</span>
+            </label>
+
+            <button 
+              onClick={handleSendTicket} 
+              disabled={ticketLoading || !ticketMessage.trim()}
+              className="mt-2 flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition"
+            >
+              {ticketLoading ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>}
+              Отправить сообщение
+            </button>
           </div>
         </section>
       </div>

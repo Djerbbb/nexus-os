@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { 
-  LayoutDashboard, CheckSquare, Wallet, Brain, Activity, 
-  LogOut, Hexagon, UserCircle, Edit2, X, Check, Loader2, 
+  LayoutDashboard, CheckSquare, Wallet, Brain, Activity,
+  LogOut, Hexagon, UserCircle, Edit2, X, Check, Loader2,
   AlertTriangle, Lock, Wifi, WifiOff, RefreshCw,
-  Bell, BellOff
+  Bell, BellOff, Shield
 } from 'lucide-react';
-import { LocalDB } from '@/lib/db'; // <--- Добавляем базу данных
-import { CloudOff } from 'lucide-react'; // <--- Добавляем иконку
+import { LocalDB } from '@/lib/db';
+import { CloudOff } from 'lucide-react';
 import { useDevice } from '@/lib/device';
 import { NotificationManager } from '@/lib/notifications';
 
@@ -28,6 +28,8 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('user'); // Состояние роли
   
   // Состояния редактирования профиля
   const [isEditing, setIsEditing] = useState(false);
@@ -166,18 +168,37 @@ export default function Sidebar() {
   useEffect(() => { setIsMobileOpen(false); }, [pathname]);
 
   // Auth & Profile
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
-      if (session?.user) setNewName(session.user.user_metadata?.full_name || '');
-      if (!session && pathname !== '/auth' && pathname !== '/update-password') router.push('/auth');
-    };
-    checkUser();
+useEffect(() => {
+  const checkUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    setUser(session?.user || null);
+    if (session?.user) {
+       setNewName(session.user.user_metadata?.full_name || '');
+       if (session.user.user_metadata?.avatar_url) {
+          setAvatarUrl(`${session.user.user_metadata.avatar_url}?t=${new Date().getTime()}`);
+       }
+
+       // НОВОЕ: Запрашиваем роль из таблицы profiles
+       const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+       if (profile) setUserRole(profile.role);
+    }
+    if (!session && pathname !== '/auth' && pathname !== '/update-password') router.push('/auth');
+  };
+  checkUser();
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null);
-      if (session?.user) setNewName(session.user.user_metadata?.full_name || '');
+      if (session?.user) {
+         setNewName(session.user.user_metadata?.full_name || '');
+         // Добавлено: обновление аватарки при изменении профиля
+         if (session.user.user_metadata?.avatar_url) {
+            setAvatarUrl(`${session.user.user_metadata.avatar_url}?t=${new Date().getTime()}`);
+         }
+      }
       if (!session && pathname !== '/auth' && pathname !== '/update-password') router.push('/auth');
     });
     return () => subscription.unsubscribe();
@@ -272,8 +293,7 @@ export default function Sidebar() {
   if (pathname === '/auth' || pathname === '/update-password') return null;
 
   return (
-    <>      
-      {/* 1. МЫ УДАЛИЛИ БЛОКИРУЮЩИЙ DIV ОТСЮДА */}
+    <>
 
       {/* 2. ЗАТЕМНЕНИЕ (BACKDROP) */}
       <div 
@@ -328,6 +348,23 @@ export default function Sidebar() {
           })}
         </nav>
 
+        {/* КНОПКА АДМИНКИ (ТОЛЬКО ДЛЯ АДМИНОВ И СОЗДАТЕЛЕЙ) */}
+        {(userRole === 'admin' || userRole === 'creator') && (
+          <div className="px-3 mb-2">
+            <Link 
+              href="/admin" 
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group border ${
+                pathname === '/admin' 
+                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/20' 
+                  : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20'
+              }`}
+            >
+              <Shield size={20} className={pathname === '/admin' ? '' : 'group-hover:scale-110 transition-transform'} />
+              <span className="font-bold text-sm tracking-wider uppercase">Админка</span>
+            </Link>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="p-4 border-t border-white/5 relative">
           
@@ -351,7 +388,18 @@ export default function Sidebar() {
 
           {!isEditing ? (
             <div className="flex items-center gap-3 px-3 py-2 mb-2 rounded-xl bg-white/5 group relative">
-              <UserCircle size={32} className="text-neutral-400 shrink-0" />
+              <div className="w-8 h-8 rounded-full bg-neutral-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                 {avatarUrl ? (
+                   <img 
+                     src={avatarUrl} 
+                     alt="Ava" 
+                     className="w-full h-full object-cover"
+                     onError={() => setAvatarUrl(null)}
+                   />
+                 ) : (
+                   <UserCircle size={32} className="text-neutral-400" />
+                 )}
+              </div>
               <div className="overflow-hidden flex-1">
                 <div className="text-xs font-medium text-white truncate">
                   {user?.user_metadata?.full_name || 'Commander'}
