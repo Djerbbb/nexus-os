@@ -7,7 +7,7 @@ import {
   CheckSquare, Wallet, ArrowRight, Zap, 
   TrendingUp, TrendingDown, Activity, Brain, 
   Plus, AlertTriangle, Search, FileText, Loader2,
-  Settings, X
+  Settings, X, Dumbbell
 } from 'lucide-react';
 import { LocalDB } from '@/lib/db'; 
 import { App as CapApp } from '@capacitor/app'; 
@@ -33,6 +33,7 @@ export default function Dashboard() {
     monthlyExpense: 0,
     totalNotes: 0,
     todayLogs: 0,
+    thisMonthWorkouts: 0,
     userName: 'Commander'
   });
 
@@ -162,6 +163,7 @@ export default function Dashboard() {
         const allTrans = await LocalDB.getAll<any>('transactions');
         const allNotes = await LocalDB.getAll<any>('notes');
         const allLogs = await LocalDB.getAll<any>('system_logs');
+        const allWorkouts = await LocalDB.getAll<any>('kinetic_workouts').catch(() => []);
 
         // --- ФИЛЬТРАЦИЯ (Оставляем только свои данные) ---
         // Если user_id нет (старая запись), она отсеется.
@@ -169,6 +171,7 @@ export default function Dashboard() {
         const lTrans = allTrans.filter((t: any) => t.user_id === userId);
         const lNotes = allNotes.filter((n: any) => n.user_id === userId);
         const lLogs = allLogs.filter((l: any) => l.user_id === userId);
+        const lWorkouts = allWorkouts.filter((w: any) => w.user_id === userId);
 
         // 3. РАСЧЕТЫ (Твой код без изменений, но работает уже с чистыми данными)
 
@@ -176,8 +179,6 @@ export default function Dashboard() {
         // Было: .eq('is_complete', false)
         const activeTasksList = lTodos ? lTodos.filter((t: any) => !t.is_complete) : [];
         const activeTasks = activeTasksList.length;
-        
-        // Было: .filter(t => t.priority === 'high')
         const highPriority = activeTasksList.filter((t: any) => t.priority === 'high').length;
 
         // --- Заметки ---
@@ -195,6 +196,13 @@ export default function Dashboard() {
         let bal = 0;
         let expMonth = 0;
         const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+
+        // Подсчет тренировок за месяц
+        const thisMonthWorkouts = lWorkouts ? lWorkouts.filter((w: any) => {
+            const d = new Date(w.created_at);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        }).length : 0;
 
         if (lTrans) {
             lTrans.forEach((t: any) => {
@@ -219,16 +227,18 @@ export default function Dashboard() {
             monthlyExpense: expMonth,
             totalNotes,
             todayLogs,
+            thisMonthWorkouts,
             userName: realName
         });
         
-        // 5. ФОНОВОЕ ОБНОВЛЕНИЕ (Скачиваем с сервера, если база пуста или устарела)
+        // 5. ФОНОВОЕ ОБНОВЛЕНИЕ
         if (navigator.onLine && userId) {
-            const [rTodos, rTrans, rNotes, rLogs] = await Promise.all([
+            const [rTodos, rTrans, rNotes, rLogs, rWorkouts] = await Promise.all([ // <--- Добавили rWorkouts
                 supabase.from('todos').select('*'),
                 supabase.from('transactions').select('*'),
                 supabase.from('notes').select('*'),
-                supabase.from('system_logs').select('*').order('created_at', { ascending: false }).limit(50)
+                supabase.from('system_logs').select('*').order('created_at', { ascending: false }).limit(50),
+                supabase.from('kinetic_workouts').select('*') // <--- Добавили скачивание
             ]);
 
             // Если данные пришли - сохраняем в телефон
@@ -236,12 +246,18 @@ export default function Dashboard() {
             if (rTrans.data) await LocalDB.put('transactions', rTrans.data);
             if (rNotes.data) await LocalDB.put('notes', rNotes.data);
             if (rLogs.data) await LocalDB.put('system_logs', rLogs.data);
+            if (rWorkouts.data) await LocalDB.put('kinetic_workouts', rWorkouts.data); // <--- Сохраняем
 
-            // И заново пересчитываем цифры для свежих данных (копия логики выше)
-            const newTodos = rTodos.data || lTodos; // Берем новые или оставляем старые
+            const newTodos = rTodos.data || lTodos; 
             const newTrans = rTrans.data || lTrans;
             const newNotes = rNotes.data || lNotes;
             const newLogs = rLogs.data || lLogs;
+            const newWorkouts = rWorkouts.data || lWorkouts; // <--- Добавили
+
+            const newThisMonthWorkouts = newWorkouts.filter((w: any) => {
+                const d = new Date(w.created_at);
+                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            }).length;
 
             // Расчеты по новым данным
             // Задачи
@@ -269,6 +285,7 @@ export default function Dashboard() {
                 monthlyExpense: newExpMonth,
                 totalNotes: newNotes.length,
                 todayLogs: newLogs.filter((l: any) => new Date(l.created_at) >= todayStart).length,
+                thisMonthWorkouts: newThisMonthWorkouts,
                 userName: realName
             });
         }
@@ -397,7 +414,7 @@ export default function Dashboard() {
       </div>
 
       {/* KEY METRICS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-10">
         
         {/* 1. Tasks Card */}
         <Link href="/tasks" className="group p-5 md:p-6 bg-card/50 border border-neutral-500/10 rounded-3xl hover:border-indigo-500/50 transition relative overflow-hidden">
@@ -445,6 +462,21 @@ export default function Dashboard() {
           </div>
         </Link>
 
+        {/* Kinetic Card */}
+        <Link href="/kinetic" className="group p-5 md:p-6 bg-card/50 border border-neutral-500/10 rounded-3xl hover:border-cyan-500/50 transition relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition transform group-hover:scale-110">
+            <Dumbbell size={64} className="text-cyan-500" />
+          </div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400"><Dumbbell size={20} /></div>
+            <span className="text-sm font-medium text-neutral-300">Kinetic</span>
+          </div>
+          <div className="text-3xl font-bold text-main mb-1">{loading ? '...' : stats.thisMonthWorkouts}</div>
+          <div className="text-xs text-muted">
+             {loading ? 'Загрузка...' : getNoun(stats.thisMonthWorkouts, 'Тренировка за месяц', 'Тренировки за месяц', 'Тренировок за месяц')}
+          </div>
+        </Link>
+
          {/* 4. Chronos Card */}
          <Link href="/chronos" className="group p-5 md:p-6 bg-card/50 border border-neutral-500/10 rounded-3xl hover:border-rose-500/50 transition relative overflow-hidden">
            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition transform group-hover:scale-110">
@@ -461,46 +493,10 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* QUICK ACTIONS ROW */}
-      <h3 className="text-sm font-medium text-muted mb-4 uppercase tracking-wider">Быстрый переход</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-         <Link href="/tasks" className="p-4 rounded-2xl bg-card border border-neutral-500/10 hover:bg-neutral-800 transition flex flex-col md:flex-row items-start md:items-center justify-between group gap-2">
-            <div className="flex items-center gap-3">
-               <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-main transition"><Zap size={16}/></div>
-               <span className="text-sm text-main">Задача</span>
-            </div>
-            <ArrowRight size={16} className="hidden md:block text-neutral-600 group-hover:text-main transition"/>
-         </Link>
-      
-         <Link href="/finance" className="p-4 rounded-2xl bg-card border border-neutral-500/10 hover:bg-neutral-800 transition flex flex-col md:flex-row items-start md:items-center justify-between group gap-2">
-            <div className="flex items-center gap-3">
-               <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500 group-hover:text-main transition"><TrendingUp size={16}/></div>
-               <span className="text-sm text-main">Доход</span>
-            </div>
-            <ArrowRight size={16} className="hidden md:block text-neutral-600 group-hover:text-main transition"/>
-         </Link>
-      
-         <Link href="/brain" className="p-4 rounded-2xl bg-card border border-neutral-500/10 hover:bg-neutral-800 transition flex flex-col md:flex-row items-start md:items-center justify-between group gap-2">
-            <div className="flex items-center gap-3">
-               <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-main transition"><Plus size={16}/></div>
-               <span className="text-sm text-main">Мысль</span>
-            </div>
-            <ArrowRight size={16} className="hidden md:block text-neutral-600 group-hover:text-main transition"/>
-         </Link>
-      
-         <Link href="/chronos" className="p-4 rounded-2xl bg-card border border-neutral-500/10 hover:bg-neutral-800 transition flex flex-col md:flex-row items-start md:items-center justify-between group gap-2">
-            <div className="flex items-center gap-3">
-               <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-400 group-hover:bg-rose-500 group-hover:text-main transition"><Activity size={16}/></div>
-               <span className="text-sm text-main">Лента</span>
-            </div>
-            <ArrowRight size={16} className="hidden md:block text-neutral-600 group-hover:text-main transition"/>
-         </Link>
-      </div>
-
       {/* DECORATIVE FOOTER */}
       <div className="mt-auto pt-10 flex justify-between items-end opacity-20 hover:opacity-50 transition">
          <div className="text-[10px] text-muted font-mono">
-            NEXUS OS v1.0 <br/>
+            NEXUS OS v1.5 <br/>
             SYSTEM: ONLINE
          </div>
          <div className="flex gap-1">

@@ -3,7 +3,7 @@ import { LocalDB } from './db';
 import { SettingsManager } from '@/lib/settings';
 
 type LogAction = 'create' | 'update' | 'delete' | 'complete' | 'restore' | 'income' | 'expense' | 'auth';
-type LogModule = 'tasks' | 'finance' | 'brain' | 'system';
+type LogModule = 'tasks' | 'finance' | 'brain' | 'system' | 'kinetic';
 
 export const logEvent = async (
   module: LogModule,

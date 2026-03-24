@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { LocalDB } from '@/lib/db';
 import { 
   History, Activity, Calendar, Filter, Smartphone, Monitor, 
-  CheckSquare, Wallet, Brain, Zap, ChevronLeft, ChevronRight
+  CheckSquare, Wallet, Brain, Zap, ChevronLeft, ChevronRight,
+  Dumbbell
 } from 'lucide-react';
 import { useDevice } from '@/lib/device';
 import { useRouter } from 'next/navigation';
@@ -16,7 +17,7 @@ import { SettingsManager } from '@/lib/settings';
 type LogEntry = {
   id: number;
   user_id?: string;
-  module: 'tasks' | 'finance' | 'brain' | 'system';
+  module: 'tasks' | 'finance' | 'brain' | 'system' | 'kinetic';
   event_type: string;
   description: string;
   created_at: string;
@@ -27,10 +28,10 @@ export default function ChronosPage() {
   const router = useRouter();
   const { isTouch } = useDevice();
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [filter, setFilter] = useState<'all' | 'tasks' | 'finance' | 'brain'>('all');
+  const [filter, setFilter] = useState<'all' | 'tasks' | 'finance' | 'brain' | 'kinetic'>('all');
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
-  const [settings, setLocalSettings] = useState(SettingsManager.get()); // Локальная копия для UI
+  const [settings, setLocalSettings] = useState(SettingsManager.get());
 
   useEffect(() => {
     // --- АВТО-ОЧИСТКА ---
@@ -124,10 +125,10 @@ export default function ChronosPage() {
     } else {
       setSelectedDate(null);
     }
-  }, [availableDates]); // Убрали selectedDate из зависимостей, чтобы не сбрасывалось лишний раз
+  }, [availableDates]);
 
   // Получаем логи только для выбранной даты
-  const currentLogs = selectedDate ? logsByDate[selectedDate] : [];
+  const currentLogs = selectedDate ? (logsByDate[selectedDate] || []) : [];
 
   // ИСПРАВЛЕННЫЕ ИКОНКИ (Разные для каждой категории)
   const getIcon = (module: string) => {
@@ -135,6 +136,7 @@ export default function ChronosPage() {
       case 'tasks': return <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"><CheckSquare size={16}/></div>;
       case 'finance': return <div className="p-2 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20"><Wallet size={16}/></div>;
       case 'brain': return <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20"><Brain size={16}/></div>;
+      case 'kinetic': return <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-500 border border-cyan-500/20"><Dumbbell size={16}/></div>;
       default: return <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500 border border-indigo-500/20"><Zap size={16}/></div>;
     }
   };
@@ -179,7 +181,9 @@ export default function ChronosPage() {
       case 'brain':
         router.push(`/brain?id=${targetId}`);
         break;
-      // Для 'system' переходов нет
+      case 'kinetic':
+        router.push(`/kinetic?id=${targetId}`);
+        break;
     }
   };
 
@@ -207,14 +211,13 @@ export default function ChronosPage() {
             
             {/* Группа фильтров (Скроллится горизонтально, если не влезает) */}
             <div className="flex bg-neutral-900 p-1 rounded-lg border border-white/5 flex-1 md:flex-none overflow-x-auto scrollbar-hide">
-                {(['all', 'tasks', 'finance', 'brain'] as const).map(f => (
+                {(['all', 'tasks', 'finance', 'brain', 'kinetic'] as const).map(f => ( // <--- Добавили 'kinetic'
                     <button 
                     key={f}
                     onClick={() => setFilter(f)}
-                    // whitespace-nowrap запрещает перенос текста внутри кнопки
                     className={`flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-medium transition capitalize whitespace-nowrap ${filter === f ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-white'}`}
                     >
-                    {f === 'all' ? 'Все' : f === 'tasks' ? 'Задачи' : f === 'finance' ? 'Деньги' : 'Мысли'}
+                    {f === 'all' ? 'Все' : f === 'tasks' ? 'Задачи' : f === 'finance' ? 'Деньги' : f === 'brain' ? 'Мысли' : 'Спорт'} 
                     </button>
                 ))}
             </div>

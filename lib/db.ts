@@ -5,12 +5,13 @@ const STORES = [
   'todos', 'subtasks', 'projects', 
   'notes', 'folders', 'note_links',
   'transactions', 'categories',
-  'sync_queue', // Очередь отложенных действий
-  'system_logs'
+  'sync_queue',
+  'system_logs',
+  'kinetic_workouts'
 ];
 
 const DB_NAME = 'NexusLocalDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {

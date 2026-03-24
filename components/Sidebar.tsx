@@ -8,7 +8,7 @@ import {
   LayoutDashboard, CheckSquare, Wallet, Brain, Activity,
   LogOut, Hexagon, UserCircle, Edit2, X, Check, Loader2,
   AlertTriangle, Lock, Wifi, WifiOff, RefreshCw,
-  Bell, BellOff, Shield
+  Bell, BellOff, Shield, Clock, ShieldAlert, Dumbbell
 } from 'lucide-react';
 import { LocalDB } from '@/lib/db';
 import { CloudOff } from 'lucide-react';
@@ -19,7 +19,8 @@ const MENU_ITEMS = [
   { name: 'Обзор', path: '/', icon: <LayoutDashboard size={20} /> },
   { name: 'Задачи', path: '/tasks', icon: <CheckSquare size={20} /> },
   { name: 'Финансы', path: '/finance', icon: <Wallet size={20} /> },
-  { name: 'База знаний', path: '/brain', icon: <Brain size={20} /> }, 
+  { name: 'База знаний', path: '/brain', icon: <Brain size={20} /> },
+  { name: 'Kinetic', path: '/kinetic', icon: <Dumbbell size={20} /> },
   { name: 'Chronos', path: '/chronos', icon: <Activity size={20} /> },
 ];
 
