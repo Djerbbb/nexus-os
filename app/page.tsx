@@ -12,6 +12,7 @@ import {
 import { LocalDB } from '@/lib/db'; 
 import { App as CapApp } from '@capacitor/app'; 
 import { SettingsManager } from '@/lib/settings';
+import OnboardingModal from '@/components/OnboardingModal';
 
 
 // Типы для поиска
@@ -44,6 +45,7 @@ export default function Dashboard() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [announcement, setAnnouncement] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // --- SYNC ENGINE (НОВАЯ ЧАСТЬ) ---
   // Добавляем этот useEffect, чтобы запускать синхронизацию при входе и появлении сети
@@ -68,6 +70,12 @@ export default function Dashboard() {
     const settings = SettingsManager.get();
     SettingsManager.applyTheme(settings); // Применяем тему
     setHideBalances(settings.hideBalances);
+
+    // ПРОСМОТРЕН ЛИ ГАЙД:
+    if (!settings.hasSeenOnboarding) {
+      setShowOnboarding(true);
+    }
+
     fetchStats();
     const fetchAnnouncement = async () => {
     const { data } = await supabase.from('system_announcements').select('message').eq('is_active', true).limit(1).maybeSingle();
@@ -298,6 +306,11 @@ export default function Dashboard() {
     }
   };
 
+  const handleOnboardingComplete = () => {
+    SettingsManager.save({ hasSeenOnboarding: true });
+    setShowOnboarding(false);
+  };
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Доброе утро';
@@ -338,6 +351,9 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 md:p-8 h-full flex flex-col max-w-6xl mx-auto relative overflow-y-auto custom-scrollbar">
+
+      {/* ПРИВЕТСТВЕННЫЙ ГАЙД */}
+      {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
       
       {/* --- GLOBAL SEARCH BAR --- */}
       <div className="mb-8 relative z-30">

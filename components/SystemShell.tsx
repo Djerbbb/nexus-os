@@ -7,9 +7,10 @@ import { supabase } from '@/lib/supabase';
 import { SettingsManager } from '@/lib/settings';
 import { NativeBiometric } from 'capacitor-native-biometric';
 import { Capacitor } from '@capacitor/core';
-import { Fingerprint, Lock, Loader2, XCircle, Wrench } from 'lucide-react';
+import { Fingerprint, Lock, Loader2, XCircle, Wrench, FileText } from 'lucide-react';
 
 export default function SystemShell({ children }: { children: React.ReactNode }) {
+  const [needsTermsAcceptance, setNeedsTermsAcceptance] = useState(false);
   const router = useRouter();
   const [isLocked, setIsLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +54,7 @@ export default function SystemShell({ children }: { children: React.ReactNode })
             // Запрашиваем профиль юзера
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('is_banned, role')
+                .select('is_banned, role, has_accepted_terms')
                 .eq('id', session.user.id)
                 .single();
 
@@ -65,6 +66,10 @@ export default function SystemShell({ children }: { children: React.ReactNode })
 
             if (profile?.is_banned) {
                 setIsBanned(true);
+            }
+
+            if (profile && profile.has_accepted_terms === false) {
+                setNeedsTermsAcceptance(true);
             }
 
             // Если тех. работы и юзер НЕ creator/admin - блокируем
@@ -113,6 +118,19 @@ export default function SystemShell({ children }: { children: React.ReactNode })
     return () => { listener.then(l => l.remove()); };
   }, [router]);
 
+  const handleAcceptTerms = async () => {
+    setIsLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        await supabase
+            .from('profiles')
+            .update({ has_accepted_terms: true })
+            .eq('id', session.user.id);
+        setNeedsTermsAcceptance(false);
+    }
+    setIsLoading(false);
+  };
+
   if (isLoading) return <div className="h-screen w-screen bg-neutral-950 flex items-center justify-center"><Loader2 className="animate-spin text-neutral-500"/></div>;
 
   // --- ЭКРАН БЛОКИРОВКИ ПОЛЬЗОВАТЕЛЯ (БАН) ---
@@ -151,6 +169,38 @@ export default function SystemShell({ children }: { children: React.ReactNode })
            </div>
            <button onClick={performBiometricCheck} className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition shadow-lg shadow-indigo-500/20 mt-4 active:scale-95">
              <Fingerprint size={20} /> Разблокировать
+           </button>
+        </div>
+      );
+  }
+
+  // --- ЭКРАН ПРИНЯТИЯ НОВЫХ ПРАВИЛ ---
+  if (needsTermsAcceptance) {
+      return (
+        <div className="h-screen w-screen bg-neutral-950 flex flex-col items-center justify-center gap-4 z-[9999] relative p-6 text-center animate-in fade-in zoom-in-95 duration-300">
+           <div className="w-16 h-16 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center rounded-2xl mb-4 shadow-lg shadow-indigo-500/10">
+             <FileText size={32} />
+           </div>
+           <h1 className="text-2xl font-bold text-white tracking-wide">Обновление правил</h1>
+           <p className="text-neutral-400 text-sm max-w-md leading-relaxed">
+             Мы обновили Пользовательское соглашение и Политику конфиденциальности. 
+             Чтобы продолжить использовать Nexus OS, пожалуйста, ознакомьтесь с ними и подтвердите согласие.
+           </p>
+           
+           <div className="flex gap-6 mt-4 mb-2">
+             <a href="https://big-increase-0d8.notion.site/Nexus-OS-33a4b42cd66680a09bd7e8dcd0cfebbe" target="_blank" className="text-indigo-400 hover:text-indigo-300 text-sm underline decoration-indigo-500/30 underline-offset-4 transition">
+               Пользовательское соглашение
+             </a>
+             <a href="https://big-increase-0d8.notion.site/Nexus-OS-33a4b42cd666808b8588c619832614ea" target="_blank" className="text-indigo-400 hover:text-indigo-300 text-sm underline decoration-indigo-500/30 underline-offset-4 transition">
+               Политика конфиденциальности
+             </a>
+           </div>
+
+           <button 
+             onClick={handleAcceptTerms} 
+             className="mt-6 px-8 py-3.5 w-full max-w-sm bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white font-medium transition shadow-xl shadow-indigo-500/20 active:scale-95"
+           >
+             Я прочитал(а) и согласен(на)
            </button>
         </div>
       );

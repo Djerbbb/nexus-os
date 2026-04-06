@@ -6,7 +6,9 @@ import {
   ArrowLeft, Fingerprint, Eye, EyeOff, 
   Bell, Shield, CheckSquare, Brain,
   Camera, User as UserIcon, Loader2,
-  LifeBuoy, Send, MessageSquare, Edit2, Check, X, AlertTriangle
+  LifeBuoy, Send, MessageSquare, Edit2, 
+  Check, X, AlertTriangle, HelpCircle, RefreshCw,
+  ChevronRight
 } from 'lucide-react';
 import { SettingsManager, AppSettings } from '../../lib/settings';
 import { NativeBiometric } from 'capacitor-native-biometric';
@@ -16,6 +18,10 @@ import { User } from '@supabase/supabase-js';
 
 export default function SettingsPage() {
   const router = useRouter();
+  const resetOnboarding = () => {
+  SettingsManager.save({ hasSeenOnboarding: false });
+  router.push('/');
+  };
   const [settings, setSettings] = useState<AppSettings>(SettingsManager.get());
   const [biometryAvailable, setBiometryAvailable] = useState(false);
 
@@ -612,6 +618,50 @@ export default function SettingsPage() {
             </button>
           </div>
         </section>
+        <div className="mt-8 p-6 bg-card border border-white/5 rounded-3xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+              <HelpCircle size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-main">Справка и обучение</h2>
+              <p className="text-xs text-muted">Помощь в освоении систем Nexus OS</p>
+            </div>
+          </div>
+
+          <button
+            onClick={resetOnboarding}
+            className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-neutral-800 rounded-xl group-hover:text-indigo-400 transition">
+                <RefreshCw size={18} />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-medium text-main">Пройти обучение заново</div>
+                <div className="text-[10px] text-muted uppercase tracking-wider">Показать приветственный гайд</div>
+              </div>
+            </div>
+            <div className="text-muted group-hover:text-main transition">
+              <ChevronRight size={20} />
+            </div>
+          </button>
+        </div>
+        {/* Юридическая информация */}
+        <div className="mt-8 flex flex-col items-center gap-2 pb-8">
+          <div className="flex items-center gap-4 text-xs">
+            <a href="https://big-increase-0d8.notion.site/Nexus-OS-33a4b42cd66680a09bd7e8dcd0cfebbe" target="_blank" className="text-muted hover:text-indigo-400 transition underline underline-offset-2">
+              Пользовательское соглашение
+            </a>
+            <span className="text-neutral-700">•</span>
+            <a href="https://big-increase-0d8.notion.site/Nexus-OS-33a4b42cd666808b8588c619832614ea" target="_blank" className="text-muted hover:text-indigo-400 transition underline underline-offset-2">
+              Политика конфиденциальности
+            </a>
+          </div>
+          <div className="text-[10px] text-neutral-600 font-mono">
+            NEXUS OS © {new Date().getFullYear()}
+          </div>
+        </div>
       </div>
     </div>
   );

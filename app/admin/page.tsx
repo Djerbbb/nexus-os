@@ -7,7 +7,7 @@ import {
   Shield, Users, Activity, Crown, ShieldAlert, 
   User as UserIcon, Loader2, Clock, Ban, CheckCircle, 
   Megaphone, Wrench, BarChart3, Ticket, Trash2, 
-  MessageSquareReply
+  MessageSquareReply, FileText
 } from 'lucide-react';
 
 interface Profile {
@@ -135,6 +135,21 @@ export default function AdminPage() {
     setAnnouncement('');
   };
 
+  const handleForceTermsAcceptance = async () => {
+    if (!confirm('ВНИМАНИЕ! Это действие сбросит статус согласия у ВСЕХ пользователей. При следующем входе им придется заново принять обновленные правила. Продолжить?')) return;
+
+    setActionLoading('reset_terms');
+    try {
+      const { error } = await supabase.rpc('reset_all_users_terms_acceptance');
+      if (error) throw error;
+      alert('Успешно! Теперь все пользователи увидят окно принятия новых правил при следующем входе.');
+    } catch (err: any) {
+      alert('Ошибка при сбросе соглашений: ' + err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) return <div className="h-full flex items-center justify-center text-indigo-500"><Loader2 className="animate-spin" size={32} /></div>;
 
   return (
@@ -204,6 +219,26 @@ export default function AdminPage() {
                 </button>
               </div>
             </div>
+
+            {/* Сброс юридических соглашений */}
+            <div className="bg-card rounded-2xl border border-rose-500/20 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 mt-6">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <FileText size={18} className="text-rose-500"/> Обновление документов
+                </h3>
+                <p className="text-sm text-neutral-400 mt-1 max-w-xl">
+                  Принудительно запросить новое согласие у всех пользователей. Нажмите эту кнопку, если вы серьезно изменили Политику конфиденциальности или Пользовательское соглашение.
+                </p>
+              </div>
+              <button 
+                onClick={handleForceTermsAcceptance} 
+                disabled={actionLoading === 'reset_terms'} 
+                className="shrink-0 px-6 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 rounded-xl text-sm font-medium transition flex items-center gap-2"
+              >
+                {actionLoading === 'reset_terms' ? <Loader2 size={16} className="animate-spin"/> : 'Запросить у всех'}
+              </button>
+            </div>
+
           </div>
         )}
 

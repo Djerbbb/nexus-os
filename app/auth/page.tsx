@@ -15,6 +15,7 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Поля формы
   const [email, setEmail] = useState('');
@@ -67,6 +68,7 @@ export default function AuthPage() {
       } else {
         // --- РЕГИСТРАЦИЯ (Имя + Почта + Пароль) ---
         if (!email || !username || !password) throw new Error('Заполните все поля');
+        if (!acceptedTerms) throw new Error('Необходимо принять пользовательское соглашение');
 
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
@@ -192,6 +194,25 @@ export default function AuthPage() {
               >
                 Забыли пароль?
               </button>
+            </div>
+          )}
+
+          {/* Пользовательское соглашение (Только при регистрации) */}
+          {viewMode === 'register' && (
+            <div className="flex items-start gap-3 mt-2 mb-2 animate-in slide-in-from-top-2">
+              <input 
+                type="checkbox" 
+                id="terms" 
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5 w-4 h-4 shrink-0 rounded border border-white/20 bg-neutral-950 text-indigo-500 focus:ring-1 focus:ring-indigo-500/50 cursor-pointer transition-colors"
+              />
+              <label htmlFor="terms" className="text-xs text-neutral-400 leading-tight cursor-pointer">
+                Я подтверждаю, что прочитал(а) и согласен(на) с{' '}
+                <a href="https://big-increase-0d8.notion.site/Nexus-OS-33a4b42cd66680a09bd7e8dcd0cfebbe" target="_blank" className="text-indigo-400 hover:text-indigo-300 underline decoration-indigo-500/30 underline-offset-2">Пользовательским соглашением</a>
+                {' '}и{' '}
+                <a href="https://big-increase-0d8.notion.site/Nexus-OS-33a4b42cd666808b8588c619832614ea" target="_blank" className="text-indigo-400 hover:text-indigo-300 underline decoration-indigo-500/30 underline-offset-2">Политикой конфиденциальности</a>.
+              </label>
             </div>
           )}
 

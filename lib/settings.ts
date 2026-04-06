@@ -2,6 +2,7 @@
 
 export type AppSettings = {
   // === БЕЗОПАСНОСТЬ & УВЕДОМЛЕНИЯ ===
+  hasSeenOnboarding: boolean;
   useBiometrics: boolean;
   hideBalances: boolean;      
   enableMorningBriefing: boolean; 
@@ -31,6 +32,7 @@ export type AppSettings = {
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
+  hasSeenOnboarding: false,
   useBiometrics: false,
   hideBalances: false,
   enableMorningBriefing: true, 
