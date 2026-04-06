@@ -177,18 +177,18 @@ export default function KineticBiometrics() {
 
               <div className="pt-2 border-t border-white/5">
                 <label className="block text-xs text-neutral-500 mb-3 mt-1">Объемы (см)</label>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-neutral-400 w-16">Грудь</span>
-                    <input type="number" step="0.5" value={chest} onChange={e => setChest(e.target.value)} placeholder={latest?.measurements?.chest?.toString() || ''} className="flex-1 bg-neutral-900 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-amber-500/50 placeholder:text-neutral-600" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <span className="block text-xs text-neutral-500 mb-1">Грудь</span>
+                    <input type="number" step="0.5" value={chest} onChange={e => setChest(e.target.value)} placeholder={latest?.measurements?.chest?.toString() || ''} className="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50 placeholder:text-neutral-600" />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-neutral-400 w-16">Талия</span>
-                    <input type="number" step="0.5" value={waist} onChange={e => setWaist(e.target.value)} placeholder={latest?.measurements?.waist?.toString() || ''} className="flex-1 bg-neutral-900 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-amber-500/50 placeholder:text-neutral-600" />
+                  <div>
+                    <span className="block text-xs text-neutral-500 mb-1">Талия</span>
+                    <input type="number" step="0.5" value={waist} onChange={e => setWaist(e.target.value)} placeholder={latest?.measurements?.waist?.toString() || ''} className="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50 placeholder:text-neutral-600" />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-neutral-400 w-16">Бицепс</span>
-                    <input type="number" step="0.5" value={biceps} onChange={e => setBiceps(e.target.value)} placeholder={latest?.measurements?.biceps?.toString() || ''} className="flex-1 bg-neutral-900 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-amber-500/50 placeholder:text-neutral-600" />
+                  <div>
+                    <span className="block text-xs text-neutral-500 mb-1">Бицепс</span>
+                    <input type="number" step="0.5" value={biceps} onChange={e => setBiceps(e.target.value)} placeholder={latest?.measurements?.biceps?.toString() || ''} className="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50 placeholder:text-neutral-600" />
                   </div>
                 </div>
               </div>

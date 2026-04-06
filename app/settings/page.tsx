@@ -6,7 +6,7 @@ import {
   ArrowLeft, Fingerprint, Eye, EyeOff, 
   Bell, Shield, CheckSquare, Brain,
   Camera, User as UserIcon, Loader2,
-  LifeBuoy, Send, MessageSquare
+  LifeBuoy, Send, MessageSquare, Edit2, Check, X, AlertTriangle
 } from 'lucide-react';
 import { SettingsManager, AppSettings } from '../../lib/settings';
 import { NativeBiometric } from 'capacitor-native-biometric';
@@ -34,13 +34,19 @@ export default function SettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // --- Состояния для смены имени ---
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [nameLoading, setNameLoading] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+
   useEffect(() => {
     // Загружаем данные пользователя при открытии настроек
     const getUserProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUser(user);
-        // Если есть аватарка — ставим её
+        setNewName(user.user_metadata?.full_name || user.email?.split('@')[0] || '');
         if (user.user_metadata?.avatar_url) {
           setAvatarUrl(user.user_metadata.avatar_url);
         }
@@ -49,7 +55,7 @@ export default function SettingsPage() {
     getUserProfile();
   }, []);
 
-  // --- НОВОЕ: Функция загрузки фото ---
+  // --- Функция загрузки фото ---
   const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       setUploading(true);
@@ -82,6 +88,26 @@ export default function SettingsPage() {
       alert('Ошибка загрузки фото');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleUpdateName = async () => {
+    if (!newName.trim() || !user) return;
+    setNameLoading(true); setNameError(null);
+    try {
+      const { error: dbError } = await supabase.from('profiles').update({ username: newName }).eq('id', user.id);
+      if (dbError) throw dbError;
+      
+      const { data: { user: updatedUser }, error: authError } = await supabase.auth.updateUser({ data: { full_name: newName } });
+      if (authError) throw authError;
+      
+      setUser(updatedUser); 
+      setIsEditingName(false);
+    } catch (err: any) {
+      if (err.message?.includes('unique constraint')) setNameError('Это имя уже занято');
+      else setNameError('Ошибка обновления');
+    } finally {
+      setNameLoading(false);
     }
   };
 
@@ -188,9 +214,38 @@ export default function SettingsPage() {
               </label>
            </div>
 
-           <h2 className="text-xl font-bold text-main">
-             {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Commander'}
-           </h2>
+           {!isEditingName ? (
+             <div className="flex items-center justify-center gap-2 group w-full px-4">
+                <h2 className="text-xl font-bold text-main truncate max-w-[200px] text-center">
+                  {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Commander'}
+                </h2>
+                <button 
+                   onClick={() => { setIsEditingName(true); setNewName(user?.user_metadata?.full_name || ''); }}
+                   className="p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-white/10 transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0"
+                >
+                   <Edit2 size={16} />
+                </button>
+             </div>
+           ) : (
+             <div className="flex flex-col items-center gap-2 animate-in zoom-in-95 w-full max-w-xs px-4">
+                <div className="flex w-full items-center gap-2">
+                   <input 
+                     value={newName} 
+                     onChange={e => { setNewName(e.target.value); setNameError(null); }} 
+                     className="flex-1 bg-main border border-neutral-500/20 rounded-xl px-3 py-2 text-sm text-center text-white focus:outline-none focus:border-indigo-500 transition w-full" 
+                     placeholder="Новое имя..."
+                     autoFocus
+                   />
+                   <button disabled={nameLoading} onClick={handleUpdateName} className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition disabled:opacity-50 shrink-0">
+                     {nameLoading ? <Loader2 size={18} className="animate-spin"/> : <Check size={18}/>}
+                   </button>
+                   <button disabled={nameLoading} onClick={() => setIsEditingName(false)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 transition disabled:opacity-50 shrink-0">
+                     <X size={18} />
+                   </button>
+                </div>
+                {nameError && <div className="text-xs text-rose-400 flex items-center gap-1"><AlertTriangle size={12}/>{nameError}</div>}
+             </div>
+           )}
            <p className="text-sm text-muted font-mono bg-white/5 px-3 py-1 rounded-full mt-2">
              {user?.email}
            </p>
